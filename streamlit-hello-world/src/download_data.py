@@ -11,8 +11,12 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 GOOGLE_DRIVE_IDS = {
     'books_clean.csv': '13OPdG-3ZTrjyDl0pg3-HtNGjGpYaHO3u',
-    'authors_clean.csv': '1aeCRRKSYiAxCiZ1uunqHII3J53bOsZzo',
-    'reviews_clean.csv': '1VAtguMu85ccUQapCZlL5xEB26EPbI9AS',
+}
+
+MODEL_FILES = {
+    'models/title_norm_to_row.json': '1KVMRYmv9aGuaHl8RCciDPQGS4y2phh_r',
+    'models/X_desc_reduced.npy': '1q_wT_WMt6ASRwja-fH9uKY2ztoUIilvq',
+    'models/X_review_reduced.npy': '1G2hPzdlLNPjzwj7q0ovnzfs1_bqgV38r',
 }
 
 def download_from_gdrive(file_id, output_path):
@@ -30,51 +34,28 @@ def setup_project_data():
     
     print(f"Project root: {project_root}")
     
-    #Download cleaned CSV files if they don't exist
+    # Download books_clean.csv if it doesn't exist
     for filename, file_id in GOOGLE_DRIVE_IDS.items():
         output_path = project_root / filename
-        
+
         if output_path.exists():
             print(f"✓ {filename} already exists")
             continue
-            
-        if 'YOUR_' in file_id:
-            raise ValueError(f"Please update Google Drive file ID for {filename}")
-            
+
         download_from_gdrive(file_id, output_path)
-    
-    #Build models if they don't exist
-    required_models = [
-        'X_desc_reduced.npy',
-        'X_review_reduced.npy',
-        'title_norm_to_row.json',
-        'df_books_text.parquet'
-    ]
-    
-    models_exist = all((models_dir / m).exists() for m in required_models)
-    
-    if not models_exist:
-        print("\nBuilding recommendation models...")
-        print("This will take a few minutes on first run...")
-        
-        from similarity import load_csvs, prepare_book_texts, build_tfidf_and_svd
-        
-        # Load data
-        df_books, df_authors, df_reviews = load_csvs(
-            books_path=str(project_root / 'books_clean.csv'),
-            authors_path=str(project_root / 'authors_clean.csv'),
-            reviews_path=str(project_root / 'reviews_clean.csv')
-        )
-        
-        # Prepare text data
-        df_books_text, title_map = prepare_book_texts(df_books, df_reviews)
-        
-        # Build and save models
-        build_tfidf_and_svd(df_books_text, out_dir=models_dir)
-        
-        print("Models built successfully!")
-    else:
-        print("Models already exist")
+
+    # Download pre-built model files if they don't exist
+    models_dir.mkdir(exist_ok=True)
+
+    for model_path, file_id in MODEL_FILES.items():
+        output_path = project_root / model_path
+
+        if output_path.exists():
+            print(f"✓ {model_path} already exists")
+            continue
+
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        download_from_gdrive(file_id, output_path)
     
     print("\nSetup complete, now run streamlit app")
     return True
