@@ -240,7 +240,7 @@ def load_title_mapping():
 @st.cache_data
 def load_books_metadata():
     """Load minimal book metadata for display - only columns we need."""
-    needed_cols = ['Title', 'main_author', 'avg_rating', 'is_indie', 'genre', 'categories', 'image', 'infoLink']
+    needed_cols = ['Title', 'main_author', 'avg_rating', 'is_indie', 'genre', 'categories', 'image', 'infoLink', 'description']
     df = pd.read_csv(BOOKS_PATH, usecols=needed_cols)
     df['Title_norm'] = df['Title'].str.strip().str.lower().str.replace(r'\s+', ' ', regex=True)
     # Remove duplicates to match the models (which were built on deduplicated data)
@@ -346,6 +346,7 @@ if 'indie_recommendations' in st.session_state and 'non_indie_recommendations' i
                         genre = book.get('genre', '')
                         similarity = book.get('similarity', 0)
                         info_link = book.get('infoLink', '')
+                        description = book.get('description', '')
 
                         st.markdown(f"### {title}")
                         st.write(f"**Author:** {author}")
@@ -354,6 +355,12 @@ if 'indie_recommendations' in st.session_state and 'non_indie_recommendations' i
                         if avg_rating and avg_rating > 0:
                             st.write(f"**Rating:** {avg_rating:.2f} / 5.0")
                         st.write(f"**Match Score:** {similarity:.1%}")
+
+                        # Add description in an expander to avoid clutter
+                        if description and str(description).strip() and str(description) != 'nan':
+                            with st.expander("📖 Read description"):
+                                st.write(description)
+
                         if info_link and info_link.strip():
                             st.markdown(f"[View on Google Books]({info_link})")
 
@@ -393,6 +400,7 @@ if 'indie_recommendations' in st.session_state and 'non_indie_recommendations' i
                         genre = book.get('genre', '')
                         similarity = book.get('similarity', 0)
                         info_link = book.get('infoLink', '')
+                        description = book.get('description', '')
 
                         st.markdown(f"### {title}")
                         st.write(f"**Author:** {author}")
@@ -401,6 +409,12 @@ if 'indie_recommendations' in st.session_state and 'non_indie_recommendations' i
                         if avg_rating and avg_rating > 0:
                             st.write(f"**Rating:** {avg_rating:.2f} / 5.0")
                         st.write(f"**Match Score:** {similarity:.1%}")
+
+                        # Add description in an expander to avoid clutter
+                        if description and str(description).strip() and str(description) != 'nan':
+                            with st.expander("📖 Read description"):
+                                st.write(description)
+
                         if info_link and info_link.strip():
                             st.markdown(f"[View on Google Books]({info_link})")
 
