@@ -9,35 +9,25 @@ import csv
 # Import the similarity module
 from similarity import recommend_indie_books
 
-# Run setup on first launch (download data and build models if needed)
-# This will only run once when deployed to Streamlit Cloud
-try:
-    from download_data import setup_project_data
-    # Check if data needs to be downloaded
-    SCRIPT_DIR = Path(__file__).resolve().parent
-    PROJECT_ROOT = SCRIPT_DIR.parent.parent
-    if not (PROJECT_ROOT / 'books_clean.csv').exists():
-        with st.spinner("First-time setup: Downloading data and building models..."):
-            setup_project_data()
-except Exception as e:
-    st.warning(f"Setup check: {e}. Assuming data is already available.")
-
-# Set up paths - adjust this to your local path
-# When running with streamlit, __file__ points to the script location
+# Set up paths
 SCRIPT_DIR = Path(__file__).resolve().parent  # src/
 STREAMLIT_DIR = SCRIPT_DIR.parent  # streamlit-hello-world/
 PROJECT_ROOT = STREAMLIT_DIR.parent  # data-science-mini-project/
+
+# Run setup on first launch (download data and build models if needed)
+try:
+    from download_data import setup_project_data
+    if not (PROJECT_ROOT / 'books_clean.csv').exists():
+        with st.spinner("First-time setup: Downloading data..."):
+            setup_project_data()
+except Exception as e:
+    st.warning(f"Setup check: {e}. Assuming data is already available.")
 
 # Models are in data-science-mini-project/models/ (project root)
 MODELS_PATH = PROJECT_ROOT / 'models'
 
 # Data files are in data-science-mini-project/ directory (same as PROJECT_ROOT)
 BOOKS_PATH = PROJECT_ROOT / 'books_clean.csv'
-
-# Debug output to help troubleshoot paths
-st.sidebar.write("### Debug Info")
-st.sidebar.caption(f"Models path: {MODELS_PATH}")
-st.sidebar.caption(f"Models exists: {MODELS_PATH.exists()}")
 
 # Custom CSS for better styling
 st.markdown("""
