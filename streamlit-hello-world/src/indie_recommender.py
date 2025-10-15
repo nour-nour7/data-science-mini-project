@@ -162,10 +162,13 @@ if len(st.session_state.selected_books) < 3:
         search_results = search_books(user_input, books_df, max_results=15)
 
         if len(search_results) > 0:
+            # Show first 5 results, rest in expander
             st.write(f"**Found {len(search_results)} books:** (click to add)")
 
-            # Display results in a more compact way
-            for idx, (_, book) in enumerate(search_results.iterrows()):
+            results_to_show = min(5, len(search_results))
+
+            # Display first 5 results
+            for idx, (_, book) in enumerate(search_results.head(results_to_show).iterrows()):
                 title = book['Title']
                 author = book.get('main_author', 'Unknown')
                 genre = book.get('genre', '')
@@ -183,8 +186,32 @@ if len(st.session_state.selected_books) < 3:
                         st.session_state.selected_books.append(title)
                         st.rerun()
 
-                if idx < len(search_results) - 1:
+                if idx < results_to_show - 1:
                     st.divider()
+
+            # Show remaining results in expander
+            if len(search_results) > 5:
+                with st.expander(f"Show {len(search_results) - 5} more results"):
+                    for idx, (_, book) in enumerate(search_results.iloc[5:].iterrows(), start=5):
+                        title = book['Title']
+                        author = book.get('main_author', 'Unknown')
+                        genre = book.get('genre', '')
+
+                        # Skip if already selected
+                        if title in st.session_state.selected_books:
+                            continue
+
+                        col1, col2 = st.columns([4, 1])
+                        with col1:
+                            st.write(f"**{title}**")
+                            st.caption(f"by {author} • {genre}")
+                        with col2:
+                            if st.button("➕ Add", key=f"add_{idx}_{title[:20]}"):
+                                st.session_state.selected_books.append(title)
+                                st.rerun()
+
+                        if idx < len(search_results) - 1:
+                            st.divider()
         else:
             st.info("No books found. Try a different search term.")
     elif user_input and len(user_input) < 2:
