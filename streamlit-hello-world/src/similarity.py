@@ -15,8 +15,12 @@ try:
 except Exception:
     SKLEARN_AVAILABLE = False
 
-# Default artifacts directory
-OUT_DIR = Path("models")
+# Default artifacts directory - use project root models/
+# Navigate up from wherever this script is run to the data-science-mini-project root
+SCRIPT_DIR = Path(__file__).resolve().parent  # src/
+STREAMLIT_DIR = SCRIPT_DIR.parent  # streamlit-hello-world/
+PROJECT_ROOT = STREAMLIT_DIR.parent  # data-science-mini-project/
+OUT_DIR = PROJECT_ROOT / "models"
 OUT_DIR.mkdir(exist_ok=True)
 
 
@@ -70,6 +74,9 @@ def prepare_book_texts(df_books: pd.DataFrame, df_reviews: pd.DataFrame,
     has_any_text = (df_text["desc_text"].str.strip().str.len() > 0) | (df_text["review_text_agg"].str.strip().str.len() > 0)
     df_text = df_text[has_any_text].reset_index(drop=True)
 
+    # Remove duplicate titles - keep first occurrence
+    df_text = df_text.drop_duplicates(subset=["Title_norm"], keep="first").reset_index(drop=True)
+
     title_norm_to_row = {t: i for i, t in enumerate(df_text["Title_norm"])}
     return df_text, title_norm_to_row
 
@@ -115,8 +122,10 @@ def build_tfidf_and_svd(df_books_text: pd.DataFrame,
     joblib.dump(tfidf_rev, out_dir / "tfidf_rev.joblib")
     joblib.dump(svd_rev, out_dir / "svd_rev.joblib")
     df_books_text.to_parquet(out_dir / "df_books_text.parquet", index=False)
+    # Save title mapping - MUST match the exact row order of the matrices and dataframe
+    title_norm_to_row = {t: i for i, t in enumerate(df_books_text["Title_norm"])}
     with open(out_dir / "title_norm_to_row.json", "w") as f:
-        json.dump({k: int(v) for k, v in {t: i for i, t in enumerate(df_books_text["Title_norm"])}.items()}, f)
+        json.dump({k: int(v) for k, v in title_norm_to_row.items()}, f)
 
     return tfidf_desc, svd_desc, X_desc_reduced, tfidf_rev, svd_rev, X_rev_reduced
 
@@ -188,8 +197,12 @@ def recommend_indie_books(favorite_titles: List[str],
                           exclude_favorites: bool = True,
                           genre_weight: float = GENRE_WEIGHT,
                           review_weight: float = REVIEW_WEIGHT,
-                          indie_boost: float = INDIE_BOOST) -> pd.DataFrame:
-    """Recommend books prioritizing genre/description similarity, with indie boost."""
+                          indie_boost: float = INDIE_BOOST) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """Recommend books prioritizing genre/description similarity, with indie boost.
+
+    Returns:
+        Tuple of (indie_books_df, non_indie_books_df) - both sorted by similarity
+    """
     if X_desc_reduced is None or X_review_reduced is None:
         raise RuntimeError("Reduced representations required. Build or load them first.")
 
@@ -197,7 +210,8 @@ def recommend_indie_books(favorite_titles: List[str],
     indices = [title_norm_to_row.get(t) for t in norm_favs]
     fav_idx = [i for i in indices if i is not None]
     if not fav_idx:
-        return pd.DataFrame(columns=['Title', 'similarity'])
+        empty_cols = ['Title', 'similarity']
+        return pd.DataFrame(columns=empty_cols), pd.DataFrame(columns=empty_cols)
 
     pref_desc = X_desc_reduced[fav_idx].mean(axis=0, keepdims=True)
     pref_desc = pref_desc / (np.linalg.norm(pref_desc, axis=1, keepdims=True) + 1e-12)
@@ -212,24 +226,33 @@ def recommend_indie_books(favorite_titles: List[str],
     book_genres = df_books_text['categories'].fillna("").apply(_norm_genre_list)
     genre_match_mask = book_genres.apply(lambda g: len(g.intersection(fav_genres_union)) > 0)
 
+    # Calculate similarity - boost books that match genre
     combined = genre_weight * sims_desc + review_weight * sims_rev
-    indie_mask = (df_books_text.get('is_indie') == True)
-    combined = combined + indie_boost * indie_mask.values.astype(float)
+
+    # Add genre match bonus instead of filtering (0.15 boost for matching genre)
+    genre_match_bonus = genre_match_mask.astype(float) * 0.15
+    combined = combined + genre_match_bonus
 
     result = df_books_text.copy()
     result['similarity'] = combined
 
-    aligned_mask = genre_match_mask.reindex(result.index, fill_value=False)
-    if aligned_mask.any():
-        result = result[aligned_mask.to_numpy()]
+    # Don't filter by genre - let similarity scoring handle it
+    # This way we don't exclude potentially good matches with missing/poor genre tags
 
     if exclude_favorites:
         norm_favs_set = set(norm_favs)
         result = result[~result['Title_norm'].isin(norm_favs_set)]
 
-    cols = ['Title', 'main_author', 'avg_rating', 'is_indie', 'genre', 'categories', 'similarity', 'previewLink', 'infoLink']
+    cols = ['Title', 'main_author', 'avg_rating', 'is_indie', 'genre', 'categories', 'similarity', 'previewLink', 'infoLink', 'image']
     existing_cols = [c for c in cols if c in result.columns]
-    return result.sort_values(by='similarity', ascending=False)[existing_cols].head(top_k)
+    result = result[existing_cols]
+
+    # Split into indie and non-indie
+    indie_mask = (result.get('is_indie') == True)
+    indie_books = result[indie_mask].sort_values(by='similarity', ascending=False).head(top_k)
+    non_indie_books = result[~indie_mask].sort_values(by='similarity', ascending=False).head(top_k)
+
+    return indie_books, non_indie_books
 
 
 if __name__ == '__main__':
@@ -244,8 +267,11 @@ if __name__ == '__main__':
             _, _, X_desc_reduced, _, _, X_review_reduced = build_tfidf_and_svd(df_books_text)
 
         example_fav = [df_books_text['Title'].iloc[0]] if len(df_books_text) > 0 else []
-        out = recommend_indie_books(example_fav, df_books_text, X_desc_reduced, X_review_reduced, title_map, top_k=10)
+        indie_recs, non_indie_recs = recommend_indie_books(example_fav, df_books_text, X_desc_reduced, X_review_reduced, title_map, top_k=10)
         print('Example favorites:', example_fav)
-        print(out.head())
+        print(f'Indie recommendations: {len(indie_recs)}')
+        print(indie_recs.head())
+        print(f'Non-indie recommendations: {len(non_indie_recs)}')
+        print(non_indie_recs.head())
     except Exception as e:
         print('Demo failed:', e)

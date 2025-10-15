@@ -5,7 +5,7 @@ from pathlib import Path
 
 # Import the refactored similarity module
 import sys
-PROJECT_ROOT = Path('/home/selindemirturk/data_science/data-science-mini-project')
+PROJECT_ROOT = Path('/content/drive/MyDrive/datascience_data')
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
