@@ -243,7 +243,7 @@ def recommend_indie_books(favorite_titles: List[str],
         norm_favs_set = set(norm_favs)
         result = result[~result['Title_norm'].isin(norm_favs_set)]
 
-    cols = ['Title', 'main_author', 'avg_rating', 'is_indie', 'genre', 'categories', 'similarity', 'previewLink', 'infoLink', 'image']
+    cols = ['Title', 'main_author', 'avg_rating', 'is_indie', 'genre', 'categories', 'similarity', 'previewLink', 'infoLink', 'image', 'description']
     existing_cols = [c for c in cols if c in result.columns]
     result = result[existing_cols]
 
