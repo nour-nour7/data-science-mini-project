@@ -129,7 +129,7 @@ if 'selected_books' not in st.session_state:
 @st.cache_data
 def load_book_titles():
     try:
-        df = pd.read_csv(BOOKS_PATH)
+        df = pd.read_csv(BOOKS_PATH, encoding='utf-8')
         return df['Title'].dropna().astype(str).tolist(), df
     except Exception as e:
         st.error(f"Error loading books: {e}")
@@ -268,7 +268,7 @@ def load_title_mapping():
 def load_books_metadata():
     """Load minimal book metadata for display - only columns we need."""
     needed_cols = ['Title', 'main_author', 'avg_rating', 'is_indie', 'genre', 'categories', 'image', 'infoLink', 'description']
-    df = pd.read_csv(BOOKS_PATH, usecols=needed_cols)
+    df = pd.read_csv(BOOKS_PATH, usecols=needed_cols, encoding='utf-8')
     df['Title_norm'] = df['Title'].str.strip().str.lower().str.replace(r'\s+', ' ', regex=True)
     # Remove duplicates to match the models (which were built on deduplicated data)
     df = df.drop_duplicates(subset=['Title_norm'], keep='first').reset_index(drop=True)
@@ -385,7 +385,7 @@ if 'indie_recommendations' in st.session_state and 'non_indie_recommendations' i
 
                         # Add description in an expander to avoid clutter
                         if description and str(description).strip() and str(description) != 'nan':
-                            with st.expander("📖 Read description"):
+                            with st.expander("Read description"):
                                 st.write(description)
 
                         if info_link and info_link.strip():
@@ -439,7 +439,7 @@ if 'indie_recommendations' in st.session_state and 'non_indie_recommendations' i
 
                         # Add description in an expander to avoid clutter
                         if description and str(description).strip() and str(description) != 'nan':
-                            with st.expander("📖 Read description"):
+                            with st.expander("Read description"):
                                 st.write(description)
 
                         if info_link and info_link.strip():
